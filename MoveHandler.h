@@ -1,6 +1,7 @@
 #ifndef MOVEHANDLER_H
 #define MOVEHANDLER_H
 #include <AccelStepper.h>
+#include "VerboseDebugHandler.h"
 
 extern float actual_el;
 extern float actual_az;

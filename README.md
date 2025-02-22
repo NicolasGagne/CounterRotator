@@ -24,13 +24,14 @@ TO DO:
 Running form Satdump using the Hamlib library "rotctld" to make the link between satdump and the microcontroller
 
 Start rotctld
+
   rotctld -m 202 -r COM5 -s 9600 -T 127.0.0.1 -t 4533 -vvvvv
 
 ## Installation and usage
 To get started with the project, follow these steps:
 
 Clone the Repository
-- git clone https://github.com/NicolasGagne/Rotator.git
+- git clone https://github.com/NicolasGagne/CounterRotator.git
 
 Open the directory
 - cd Rotator 
