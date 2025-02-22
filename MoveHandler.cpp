@@ -4,11 +4,12 @@
 #include <ctype.h>
 #include <Arduino.h>
 #include <AccelStepper.h>
+#include "VerboseDebugHandler.h"
 
 // Reset the elevation to 0 
 bool resetElevation() {
   //Function will return True is sucessfull
-  Serial.println("EL resetting...");
+  verboseDebug(1, "EL resetting...");
   mainStepper.setMaxSpeed(200);
   mainStepper.setSpeed(200);
   //Set pin for secondary stepper
@@ -16,8 +17,11 @@ bool resetElevation() {
   // Set new target position
   mainStepper.moveTo(-(step_per_turn/2));
   int p = 0; 
+  verboseDebug(2, "Pin Limit EL = ", 0);
+  verboseDebug(2, String(digitalRead(limitELPin)));
   while(digitalRead(limitELPin) == LOW && p <= (step_per_turn/2)){
-    Serial.println(p);
+    verboseDebug(2, "Steps done: ", 0);
+    verboseDebug(2, String(p));
     if (mainStepper.runSpeed()){
       p++; 
     }
@@ -33,16 +37,18 @@ bool resetElevation() {
 
 bool resetAzimute() {
   //Function will return True is sucessfull
-  Serial.println("AZ resetting...");
+  verboseDebug(1, "AZ resetting...");
   int p = 0; //Store number of step perform
   bool d = 0; //Store direction
   //Try half turn in one direction
   mainStepper.moveTo(-(step_per_turn));
   //Set pin for secondary stepper
   digitalWrite(dirSecondPin, LOW);
-  Serial.println(digitalRead(limitAZPin) == LOW);
+  verboseDebug(2, "Pin Limit AZ = ", 0);
+  verboseDebug(2, String(digitalRead(limitAZPin)));
   while(digitalRead(limitAZPin) == LOW && d == 0){
-    Serial.println(p);
+    verboseDebug(2, "Steps done: ", 0);
+    verboseDebug(2, String(p));
     if (mainStepper.runSpeed()){
       p++; 
     }
@@ -57,7 +63,8 @@ bool resetAzimute() {
   digitalWrite(dirSecondPin, HIGH);
   p = 0; // reset p
   while(digitalRead(limitAZPin) == LOW && d == 1){
-    Serial.println(p);
+    verboseDebug(2, "Steps done: ", 0);
+    verboseDebug(2, String(p));
     if (mainStepper.runSpeed()){
       p++; 
     }
@@ -75,24 +82,24 @@ bool resetAzimute() {
 //Function that perform the initial Reset
 void resetRotator(){
     int p = 0; //Store number of step perform
-  Serial.println("Rotator reseting Elevation to 0.0, please wait");
+  verboseDebug(1, "Rotator reseting Elevation to 0.0, please wait");
   delay(2000);
   if (resetElevation()== false){
     delay(250);
-    Serial.println("Error reseting the Rotator, Abort, Rotator stop");
+    verboseDebug(0, "Error reseting the Rotator, Abort, Rotator stop");
       exit(0);
   }else{
-    Serial.println("Rotator Elevation 0.0");
+    verboseDebug(1, "Rotator Elevation 0.0");
   }
   delay(2000);
-  Serial.println("Rotator reseting Azmute to 0.0, please wait");
+  verboseDebug(1, "Rotator reseting Azmute to 0.0, please wait");
   if (resetAzimute()== false){
-      Serial.println("Error reseting the Rotator, Abort, Rotator stop");
+      verboseDebug(0, "Error reseting the Rotator, Abort, Rotator stop");
       delay(250);
       exit(0);
   }
-  Serial.println("Rotator Azimute 0.0");
+  verboseDebug(1, "Rotator Azimute 0.0");
 
-  Serial.println("Rotator Resetting finish");
+  verboseDebug(1, "Rotator Resetting finish");
 return;
 }
