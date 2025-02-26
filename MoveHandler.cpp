@@ -10,12 +10,11 @@
 bool resetElevation() {
   //Function will return True is sucessfull
   verboseDebug(1, "EL resetting...");
-  mainStepper.setMaxSpeed(200);
-  mainStepper.setSpeed(200);
+ 
   //Set pin for secondary stepper
-  digitalWrite(dirSecondPin, HIGH);
+  digitalWrite(dirSecondPin, LOW);
   // Set new target position
-  mainStepper.moveTo(-(step_per_turn/2));
+  mainStepper.moveTo((step_per_turn/2));
   int p = 0; 
   verboseDebug(2, "Pin Limit EL = ", 0);
   verboseDebug(2, String(digitalRead(limitELPin)));
@@ -29,8 +28,6 @@ bool resetElevation() {
       return false;
     }
   }
-  //Reset El and stepper to 0
-  mainStepper.setCurrentPosition(0);
   actual_el = 0;
   return true;
 }
@@ -41,7 +38,7 @@ bool resetAzimute() {
   int p = 0; //Store number of step perform
   bool d = 0; //Store direction
   //Try half turn in one direction
-  mainStepper.moveTo(-(step_per_turn));
+  mainStepper.moveTo(-step_per_turn);
   //Set pin for secondary stepper
   digitalWrite(dirSecondPin, LOW);
   verboseDebug(2, "Pin Limit AZ = ", 0);
@@ -73,8 +70,6 @@ bool resetAzimute() {
     }
 
   }
-  //Reset El and stepper to 0
-  mainStepper.setCurrentPosition(0);
   actual_az = 0;
   return true;
 }
@@ -98,6 +93,8 @@ void resetRotator(){
       delay(250);
       exit(0);
   }
+  //Reset El and stepper to 0
+  mainStepper.setCurrentPosition(0);
   verboseDebug(1, "Rotator Azimute 0.0");
 
   verboseDebug(1, "Rotator Resetting finish");
