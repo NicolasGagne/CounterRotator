@@ -10,27 +10,29 @@
 bool resetElevation() {
   //Function will return True is sucessfull
   verboseDebug(1, "EL resetting...");
-  mainStepper.setMaxSpeed(200);
-  mainStepper.setSpeed(200);
+ 
   //Set pin for secondary stepper
-  digitalWrite(dirSecondPin, HIGH);
+  digitalWrite(dirSecondPin, LOW);
   // Set new target position
-  mainStepper.moveTo(-(step_per_turn/2));
-  int p = 0; 
+  mainStepper.moveTo(step_per_turn/2);
+  unsigned int p = 0; 
   verboseDebug(2, "Pin Limit EL = ", 0);
   verboseDebug(2, String(digitalRead(limitELPin)));
-  while(digitalRead(limitELPin) == LOW && p <= (step_per_turn/2)){
+  while(digitalRead(limitELPin) == LOW){
     verboseDebug(2, "Steps done: ", 0);
     verboseDebug(2, String(p));
-    if (mainStepper.runSpeed()){
+    if (mainStepper.run()){
       p++; 
     }
-    if (p >= (step_per_turn/3)){
+    if (p >= (step_per_turn/2)){
+      verboseDebug(1, "Exceed allow travel to reset EL");
+      verboseDebug(2, "Steps done: ", 0);
+      verboseDebug(1, String(p));
+      delay(1000);
       return false;
     }
+    delay(2); //Slow down loop for stepper
   }
-  //Reset El and stepper to 0
-  mainStepper.setCurrentPosition(0);
   actual_el = 0;
   return true;
 }
@@ -38,7 +40,7 @@ bool resetElevation() {
 bool resetAzimute() {
   //Function will return True is sucessfull
   verboseDebug(1, "AZ resetting...");
-  int p = 0; //Store number of step perform
+  unsigned int p = 0; //Store number of step perform
   bool d = 0; //Store direction
   //Try half turn in one direction
   mainStepper.moveTo(-(step_per_turn));
@@ -49,12 +51,14 @@ bool resetAzimute() {
   while(digitalRead(limitAZPin) == LOW && d == 0){
     verboseDebug(2, "Steps done: ", 0);
     verboseDebug(2, String(p));
-    if (mainStepper.runSpeed()){
+    if (mainStepper.run()){
       p++; 
     }
-    if (p >= (step_per_turn / 2 )){     
+    if (p >= (step_per_turn / 2 )){    
+      verboseDebug(1, "Switch direction"); 
       d = 1;
     }
+    delay(2); //Slow down loop for stepper
   }
 
   //Switch direction for the other half turn 
@@ -65,16 +69,15 @@ bool resetAzimute() {
   while(digitalRead(limitAZPin) == LOW && d == 1){
     verboseDebug(2, "Steps done: ", 0);
     verboseDebug(2, String(p));
-    if (mainStepper.runSpeed()){
+    if (mainStepper.run()){
       p++; 
     }
-    if (p >= step_per_turn ){     
+    if (p >= step_per_turn ){   
+      verboseDebug(1, "Exceed allow travel to reset AZ");  
       return false;
     }
-
+  delay(2); //Slow down loop for stepper
   }
-  //Reset El and stepper to 0
-  mainStepper.setCurrentPosition(0);
   actual_az = 0;
   return true;
 }
@@ -85,8 +88,8 @@ void resetRotator(){
   verboseDebug(1, "Rotator reseting Elevation to 0.0, please wait");
   delay(2000);
   if (resetElevation()== false){
-    delay(250);
     verboseDebug(0, "Error reseting the Rotator, Abort, Rotator stop");
+    delay(250);
       exit(0);
   }else{
     verboseDebug(1, "Rotator Elevation 0.0");
@@ -98,6 +101,8 @@ void resetRotator(){
       delay(250);
       exit(0);
   }
+  //Reset El and stepper to 0
+  mainStepper.setCurrentPosition(0);
   verboseDebug(1, "Rotator Azimute 0.0");
 
   verboseDebug(1, "Rotator Resetting finish");

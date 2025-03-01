@@ -6,7 +6,7 @@ extern float target_az;
 extern float actual_el;
 extern float actual_az;
 extern const float precision_limit;
-extern int step_per_turn;
+extern long int step_per_turn;
 
 extern char buffer[32];
 extern char incomingByte;
