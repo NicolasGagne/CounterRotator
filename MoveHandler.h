@@ -6,7 +6,7 @@
 extern float actual_el;
 extern float actual_az;
 extern const float precision_limit;
-extern int step_per_turn;
+extern long int step_per_turn;
 extern const int stepMainPin;
 extern const int dirMainPin;
 extern AccelStepper mainStepper;

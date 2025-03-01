@@ -23,7 +23,7 @@ and we only manually control the direction pin of the secondary stepper.
     1 - Debug
     2 - Verbatime
   */
-int verboseLevel = 2;
+int verboseLevel = 0;
 
 //Main motor is X 
 const int enPin=8; //Enablel pin for the motor
@@ -48,8 +48,8 @@ float target_el = 0;
 float target_az = 0;
 
 //Stepper information
-int step_per_turn = 800;//200 * 4;    To be adjusted using M0, M1, M2
-const float precision_limit = 0.45;  // 360 / 800; can also be use to calculate how many step are required
+long int step_per_turn = 40320;//200 * 4  * 50.4;    To be adjusted using M0, M1, M2 and gearbox
+const float precision_limit = 0.00892857;  // 360 / 40320; can also be use to calculate how many step are required
 
 // Serial variable
 char buffer[32];
@@ -57,16 +57,16 @@ char incomingByte;
 int BufferCnt = 0;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   verboseDebug(1, F("Rotator Initializating..."));
   verboseDebug(1, F("Verbose level enable for level 1"));
   verboseDebug(2, F("Verbose level enable for level 2"));
   digitalWrite(enPin, HIGH);
   delay(1000);
   pinMode(dirSecondPin, OUTPUT);
-  mainStepper.setAcceleration(20);
-  mainStepper.setMaxSpeed(20);
-  mainStepper.setSpeed(20);
+  mainStepper.setAcceleration(1000.0);
+  mainStepper.setMaxSpeed(1000.0);
+  mainStepper.setSpeed(1000.0);
   mainStepper.setCurrentPosition(0);
 
   pinMode(limitELPin, INPUT);
