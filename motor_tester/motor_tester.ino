@@ -25,7 +25,7 @@ Direction:
 2 = Go low
 3 = go high
 */
-const int dir = 2; 
+char dir; 
 
 void setup() {
 
@@ -39,35 +39,47 @@ void setup() {
   mainStepper.setCurrentPosition(0);
   mainStepper.setMinPulseWidth(40); //has no effect 
 
+  Serial.println("Use a, d, s, w, to move in a particular direction");
+  Serial.println("Use any other keey to stop");
+
 }
 
 void loop() {
+  if (Serial.available() > 0) {
+    dir = Serial.read();
+    while(Serial.available()) Serial.read();
+  }
+
   switch (dir){
   
-    case 0 : 
+    case 'a' : 
       Serial.println("Both motor in same direction Clockwise");
-      digitalWrite(dirSecondPin, HIGH);
+      digitalWrite(dirSecondPin, LOW);
       mainStepper.moveTo(-step);
       break; 
 
-    case 1: 
+    case 'd': 
       Serial.println("Both motor in same direction Counter Clockwise");
       digitalWrite(dirSecondPin, HIGH);
       mainStepper.moveTo(step);
       break;
   
-    case 2:
+    case 's':
       Serial.println("LOWER ELEVATION");
       digitalWrite(dirSecondPin, LOW);
       mainStepper.moveTo(step);
       break;
 
-    case 3:
+    case 'w':
       Serial.println("HIGER ELEVATION");
       digitalWrite(dirSecondPin, HIGH);
       mainStepper.moveTo(-step);
       break;
+
+    default:
+      Serial.println("No Movement");
+      mainStepper.moveTo(mainStepper.currentPosition());
   }
   mainStepper.run();
-
+  
 }

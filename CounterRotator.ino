@@ -63,6 +63,7 @@ const int d7 = 17;  //CoodEN
 //LCD VSS Ground
 //LCD R/W pin to ground
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+int lcdLoopCounter = 0;
 
 // store the actual position of the Rotator
 float actual_el = 0;
@@ -71,6 +72,10 @@ float actual_az = 0;
 // store the target position of the Rotator
 float target_el = 0;
 float target_az = 0;
+
+// Delta between Actual and Targer + or -
+float d_az;
+float d_el;
 
 //Stepper information
 long int step_per_turn = 40320;//200 * 4  * 50.4;    To be adjusted using M0, M1, M2 and gearbox
@@ -169,29 +174,30 @@ void loop() {
   while (Serial.available() > 0){
     readRespondSerial();
   }
-  mpu.update();
-  actual_az = -(fmod((mpu.getAngleZ() + 360.0), 360.0)) + 360 ;  // +/- 180 degree
+
+  mpu.update(); // loose 3 millis seconde for this
+  actual_az = -(fmod((mpu.getAngleZ() + 360.0), 360.0)) + 360 ;  // +/- 180 degree from sensor
   actual_el = mpu.getAngleY();  // +/- 180 degree
-
-  lcd.setCursor(7,0);
-  lcd.print(actual_az);
-  lcd.setCursor(11,0);
-  lcd.print("/");
-  lcd.setCursor(12,0);
-  lcd.print(actual_el);
   
-  lcd.setCursor(7,1);
-  lcd.print(target_az);
-  lcd.setCursor(11,1);
-  lcd.print("/");
-  lcd.setCursor(12,1);
-  lcd.print(target_el);
+  //Limit the time the code write to the LCD improve performance
+  lcdLoopCounter++;
+  if (lcdLoopCounter>101){
+    lcd.setCursor(7,0);
+    lcd.print(actual_az);
+    lcd.setCursor(11,0);
+    lcd.print("/");
+    lcd.setCursor(12,0);
+    lcd.print(actual_el);
+    
+    lcd.setCursor(7,1);
+    lcd.print(target_az);
+    lcd.setCursor(11,1);
+    lcd.print("/");
+    lcd.setCursor(12,1);
+    lcd.print(target_el);
 
-
-  //stepper control
-  // check if needed to move AZ or EL
-
-
+    lcdLoopCounter = 0;    
+  }
 
   //verboseDebug(2, F("Actual AZ: "), 0);
   //verboseDebug(2, String(actual_az));
@@ -200,8 +206,6 @@ void loop() {
 
 
   // calculate AZ delta
-  float d_az;
-  float d_el;
   //Calculate AZ Delta
   d_az = fmod((target_az - actual_az + 360), 360.0);
   if (d_az > 180){
@@ -231,8 +235,10 @@ void loop() {
           
       if (d_az > 0 ){
         // Clockwise Azimute
-        lcd.setCursor(5,0);
-        lcd.print(char(0b01111110)); //point Right
+        if (lcdLoopCounter>100){
+          lcd.setCursor(5,0);
+          lcd.print(char(0b01111110)); //point Right
+        }
         //verboseDebug(1, F("Azimute move Clockwise"));
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, HIGH);
@@ -250,8 +256,10 @@ void loop() {
 
       }else{
         //Counter Clockwise Azimute
-        lcd.setCursor(5,0);
-        lcd.print(char(0b01111111)); //point Left
+        if (lcdLoopCounter>100){
+          lcd.setCursor(5,0);
+          lcd.print(char(0b01111111)); //point Left
+        }
         //verboseDebug(1, F("Azimute move CounterClockwise"));
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, LOW);
@@ -276,8 +284,10 @@ void loop() {
 
       if (d_el > 0 ){
         //higher elevation
-        lcd.setCursor(5,0);
-        lcd.write(2); //point UP
+        if (lcdLoopCounter>100){
+          lcd.setCursor(5,0);
+          lcd.write(2); //point UP
+        }
         //verboseDebug(1, F("Higher elevation"));
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, HIGH);
@@ -295,8 +305,10 @@ void loop() {
         
       }else{
         //lower elevation
-        lcd.setCursor(5,0);
-        lcd.write(1); //point Low
+        if (lcdLoopCounter>100){
+          lcd.setCursor(5,0);
+          lcd.write(1); //point Low
+        }
         //verboseDebug(1, F("Lower elevation"));
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, LOW);
@@ -316,10 +328,11 @@ void loop() {
 
   }else{
     //NO move required
-    lcd.setCursor(5,0);
-    lcd.print(" "); //point Right
+    if (lcdLoopCounter>100){
+      lcd.setCursor(5,0);
+      lcd.print(" "); //point Right
+    }
     //verboseDebug(2, F("NO move required"));
 
   }
-  
 }
