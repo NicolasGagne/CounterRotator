@@ -15,9 +15,7 @@ bool resetElevation() {
   digitalWrite(dirSecondPin, LOW);
   // Set new target position
   mainStepper.moveTo(step_per_turn/2);
-  unsigned int p = 0; 
-  verboseDebug(2, "Pin Limit EL = ", 0);
-  verboseDebug(2, String(digitalRead(limitELPin)));
+  unsigned int p = 0; //count steps as safety
   while(digitalRead(limitELPin) == LOW){
     verboseDebug(2, "Steps done: ", 0);
     verboseDebug(2, String(p));
@@ -84,8 +82,9 @@ bool resetAzimute() {
 
 //Function that perform the initial Reset
 void resetRotator(){
-    int p = 0; //Store number of step perform
   verboseDebug(1, "Rotator reseting Elevation to 0.0, please wait");
+  verboseDebug(1, "Actual Elevation: ", 0);
+  verboseDebug(1, String(actual_el));
   delay(2000);
   if (resetElevation()== false){
     verboseDebug(0, "Error reseting the Rotator, Abort, Rotator stop");

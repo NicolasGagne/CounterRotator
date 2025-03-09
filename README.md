@@ -18,7 +18,7 @@ Goal;
 
 TO DO:
 - Elevation bellow 0 to check
-- Reset when hittiing switch
+- Switch over to MDU9250 for easier orientation
 
 
 Running form Satdump using the Hamlib library "rotctld" to make the link between satdump and the microcontroller
