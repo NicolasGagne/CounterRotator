@@ -82,10 +82,35 @@ char buffer[32];
 char incomingByte;
 int BufferCnt = 0;
 
+// declaring custom symbol for up/down arrow
+byte DownArrow[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B00100,
+  B10101,
+  B01110,
+  B00100,
+  B00000
+};
+byte UpArrow[8] = {
+  B00000,
+  B00100,
+  B01110,
+  B10101,
+  B00100,
+  B00100,
+  B00100,
+  B00000
+};
+
 void setup() {
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
   lcd.print("Initialisation...");
+  // creating custom symbol for up/dwn arrow
+  lcd.createChar(1, DownArrow);
+  lcd.createChar(2, UpArrow);
   //Disable the drivers and Initialise drivers
   digitalWrite(enPin, HIGH);
   delay(2000);
@@ -137,16 +162,17 @@ void setup() {
   lcd.print("Act:");
   lcd.setCursor(0,1);
   lcd.print("Tar:");
-
+  
 }
-void updatePosition(){
-  // Get Actual position and update variable
+
+void loop() {
+  while (Serial.available() > 0){
+    readRespondSerial();
+  }
   mpu.update();
   actual_az = -(fmod((mpu.getAngleZ() + 360.0), 360.0)) + 360 ;  // +/- 180 degree
   actual_el = mpu.getAngleY();  // +/- 180 degree
-}
 
-void updateLCDActTar(){
   lcd.setCursor(7,0);
   lcd.print(actual_az);
   lcd.setCursor(11,0);
@@ -160,13 +186,8 @@ void updateLCDActTar(){
   lcd.print("/");
   lcd.setCursor(12,1);
   lcd.print(target_el);
-}
-void loop() {
-  while (Serial.available() > 0){
-    readRespondSerial();
-  }
-  updatePosition();
-  updateLCDActTar();
+
+
   //stepper control
   // check if needed to move AZ or EL
 
@@ -200,10 +221,11 @@ void loop() {
   //verboseDebug(2, String(fabs(d_el) > precision_limit));
 
   // check if any movement is required
-  if ((fabs(d_az) >= ok_pos) || (fabs(d_el) >= ok_pos)){
+  if (d_az >= ok_pos || d_el >= ok_pos || d_az <= -ok_pos || d_el <= -ok_pos){
     //verboseDebug(1, "Move required");
     
-    if (fabs(d_az) > fabs(d_el)){
+    //if (fabs(d_az) > fabs(d_el)){
+    if (((d_az>= 0) ? d_az : -d_az) > ((d_el>= 0) ? d_el : -d_el)) {
       //Azimute move
       //verboseDebug(1,F("Azimute move requried"));
           
@@ -215,7 +237,7 @@ void loop() {
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, HIGH);
         //Calculate number of step required to move  
-        mainStepper.move(int(fabs(d_az) / precision_limit) + 1);
+        mainStepper.move(int(d_az / precision_limit) + 1);
         //verboseDebug(2, F("(int(fabs(d_az) / precision_limit) + 1) "), 0);
         //verboseDebug(2, String(int(fabs(d_az) / precision_limit) + 1));
 
@@ -234,7 +256,7 @@ void loop() {
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, LOW);
         //Calculate number of step required
-        mainStepper.move(-(int(fabs(d_az) / precision_limit) + 1));
+        mainStepper.move(int(d_az / precision_limit) + 1);
         //verboseDebug(2, F("(int(fabs(d_az) / precision_limit) + 1) "), 0);
         //verboseDebug(2, String(int(fabs(d_az) / precision_limit) + 1));
 
@@ -255,12 +277,12 @@ void loop() {
       if (d_el > 0 ){
         //higher elevation
         lcd.setCursor(5,0);
-        lcd.print(char(0b01011110)); //point UP
+        lcd.write(2); //point UP
         //verboseDebug(1, F("Higher elevation"));
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, HIGH);
         //Calculate the new step target
-        mainStepper.move(-(int(fabs(d_el) / precision_limit) + 1));
+        mainStepper.move(-(int(d_el / precision_limit) + 1));
         //verboseDebug(2, F("(int(fabs(d_el) / precision_limit) + 1) "), 0);
         //verboseDebug(2, String(int(fabs(d_el) / precision_limit) + 1));
 
@@ -274,12 +296,12 @@ void loop() {
       }else{
         //lower elevation
         lcd.setCursor(5,0);
-        lcd.print(char(0b01110110)); //point Low
+        lcd.write(1); //point Low
         //verboseDebug(1, F("Lower elevation"));
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, LOW);
         //Calculate number of step required to move to el
-        mainStepper.move(int(fabs(d_el) / precision_limit) + 1);
+        mainStepper.move(-(int(d_el / precision_limit) + 1));
         //verboseDebug(2, F("(int(fabs(d_el) / precision_limit) + 1) "), 0);
         //verboseDebug(2, String(int(fabs(d_el) / precision_limit) + 1));
         
@@ -298,9 +320,6 @@ void loop() {
     lcd.print(" "); //point Right
     //verboseDebug(2, F("NO move required"));
 
-
   }
-
   
-
 }

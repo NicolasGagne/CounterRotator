@@ -18,7 +18,8 @@ Goal;
 
 TO DO:
 - Elevation bellow 0 to check
-- Switch over to MDU9250 for easier orientation
+- Switch over to MDU9250 or bno055 for easier orientation of mag north
+- Clean up 
 
 
 Running form Satdump using the Hamlib library "rotctld" to make the link between satdump and the microcontroller
