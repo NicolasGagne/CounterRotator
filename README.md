@@ -26,7 +26,7 @@ Running form Satdump using the Hamlib library "rotctld" to make the link between
 
 Start rotctld
 
-  rotctld -m 202 -r COM5 -s 115200 -T 127.0.0.1 -t 4533 -vvvvv
+  rotctld -m 202 -r COM6 -s 115200 -T 127.0.0.1 -t 4533 -vvvvv
 
 ## Installation and usage
 To get started with the project, follow these steps:
