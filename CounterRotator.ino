@@ -8,8 +8,10 @@
 #include <LiquidCrystal.h>
 #include <AccelStepper.h>
 #include <Wire.h>  // Wire library - used for I2C communication
-#include <MPU6050_light.h>
-
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
+#include <math.h>
 
 
 /*
@@ -40,9 +42,35 @@ AccelStepper mainStepper(AccelStepper::DRIVER, stepMainPin, dirMainPin); // Defa
 //const int stepSecondPin = 3; //Y.STEP
 const int dirSecondPin = 6; // Y.DIR Low clockwise
 
-// The MPU65050 sensor I2C address
-MPU6050 mpu(Wire);
-float magDec =  -13.38;  // update with your location
+//BNO055 sensor
+Adafruit_BNO055 IMU = Adafruit_BNO055();
+float thetaM;
+float phiM;
+float thetaFold=0;
+float thetaFnew;
+float phiFold=0;
+float phiFnew;
+ 
+float thetaG=0;
+float phiG=0;
+ 
+float theta;
+float phi;
+ 
+float thetaRad;
+float phiRad;
+ 
+float Xm;
+float Ym;
+float oldXm = 0;
+float oldYm = 0;
+float psi, psi2;
+float dt;
+unsigned long millisOld;
+ 
+
+
+float magDec =  -13.4;  // update with your location
 
 //Limits Switches
 const int limitELPin = 9; // X..DIR  NOT USE FOR NOW
@@ -66,7 +94,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 int lcdLoopCounter = 0;
 
 // store the actual position of the Rotator
-float actual_el = 0;
+float actual_el = 0; 
 float actual_az = 0;
 
 // store the target position of the Rotator
@@ -109,6 +137,7 @@ byte UpArrow[8] = {
   B00000
 };
 
+
 void setup() {
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
@@ -118,7 +147,7 @@ void setup() {
   lcd.createChar(2, UpArrow);
   //Disable the drivers and Initialise drivers
   digitalWrite(enPin, HIGH);
-  delay(2000);
+  delay(1000);
 
   Serial.begin(115200);
   //verboseDebug(1, F("Rotator Initializating..."));
@@ -129,56 +158,80 @@ void setup() {
   delay(1000);
   pinMode(dirSecondPin, OUTPUT);
   mainStepper.setAcceleration(500.0);
-  mainStepper.setMaxSpeed(1000.0);
-  mainStepper.setSpeed(1500.0);
+  mainStepper.setMaxSpeed(3000.0);
+  mainStepper.setSpeed(3000.0);
   mainStepper.setCurrentPosition(0);
-  mainStepper.setMinPulseWidth(40); //has no effect 
+  mainStepper.setMinPulseWidth(10); //has no effect 
 
-  
 
-  //init wire communicaion
-  Wire.begin();
-
-  // MPU 6050 initialisation
-  byte status = mpu.begin();
-  Serial.print(F("MPU6050 status: "));
-  Serial.println(status);
-  // stop everything if could not connect to MPU6050
-  while(status!=0){
-    lcd.print("MPU not detected"); 
-    delay(5000); 
-    } 
-  
-  lcd.setCursor(0,1);
-  lcd.print("Do not move MPU6050 ");
-  Serial.println(F("Calculating offsets, do not move MPU6050"));
-  delay(1000);
-  mpu.calcOffsets(); // gyro and accelero
-  Serial.println("Done!\n");
+  /* Initialise the sensor */
+  if(!IMU.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  IMU.setExtCrystalUse(true);
   delay(2000);
 
   // Enable the servo
   digitalWrite(enPin, LOW);
 
-  //To be re-written
-  //resetRotator(); //Perform the reset of the Rotator not sure it needed
+  //Perform Calibration function
+  calibrationRotator(); 
+
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Act:");
+  lcd.print("A/T:");
   lcd.setCursor(0,1);
-  lcd.print("Tar:");
-  
+  lcd.print("C");
 }
 
 void loop() {
+  uint8_t system, gyro, accel, mg = 0;
   while (Serial.available() > 0){
     readRespondSerial();
   }
-
-  mpu.update(); // loose 3 millis seconde for this
-  actual_az = -(fmod((mpu.getAngleZ() + 360.0), 360.0)) + 360 ;  // +/- 180 degree from sensor
-  actual_el = mpu.getAngleY();  // +/- 180 degree
+  //Serial.println(millis());
   
+  if (lcdLoopCounter % 10 == 0){
+    // 3-4 millis secon in those call
+    // Refresh rate is 10ms without those call and calculation loop take about 1 millis so check every 10 loop
+    imu::Vector<3> acc =IMU.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+    imu::Vector<3> gyr =IMU.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+    imu::Vector<3> mag =IMU.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
+    //Serial.println(millis());
+    // 2 millis second
+    thetaM=-atan2(acc.x()/9.8,acc.z()/9.8)/2/3.141592654*360;
+    phiM=-atan2(acc.y()/9.8,acc.z()/9.8)/2/3.141592654*360;
+    phiFnew =.95*phiFold+.05*phiM;
+    
+    thetaFnew=.95*thetaFold+.05*thetaM; 
+    actual_el = -thetaFnew;
+    
+    dt=(millis()-millisOld)/1000.;
+    millisOld=millis();
+    theta=(theta+gyr.y()*dt)*.95+thetaM*.05;
+    phi=(phi-gyr.x()*dt)*.95+ phiM*.05;
+    //thetaG=thetaG+gyr.y()*dt;
+    //phiG=phiG-gyr.x()*dt;     
+    
+    phiRad=phi/360*(2*3.141592654);
+    thetaRad=theta/360*(2*3.141592654);
+
+    Xm=(oldXm *.95) + ((mag.x()*cos(thetaRad)-mag.y()*sin(phiRad)*sin(thetaRad)+mag.z()*cos(phiRad)*sin(thetaRad))*.05);
+    Ym=(oldYm *.95) + ((mag.y()*cos(phiRad)+mag.z()*sin(phiRad))*.05);
+  
+    psi =fmod((((atan2(Ym,Xm)/(2*3.141592654)*360)+ magDec) + 360.0), 360.0);
+    actual_az = psi; 
+    
+    phiFold=phiFnew;
+    thetaFold=thetaFnew;
+    oldXm = Xm;
+    oldYm = Ym;
+  }
+  //Serial.println(millis());
+  // 1 millis second
   //Limit the time the code write to the LCD improve performance
   lcdLoopCounter++;
   if (lcdLoopCounter>101){
@@ -196,7 +249,17 @@ void loop() {
     lcd.setCursor(12,1);
     lcd.print(target_el);
 
-    lcdLoopCounter = 0;    
+    IMU.getCalibration(&system, &gyro, &accel, &mg);  
+    lcd.setCursor(1,1);
+    lcd.print(accel);
+    lcd.setCursor(2,1);
+    lcd.print(gyro);
+    lcd.setCursor(3,1);
+    lcd.print(mg);
+    lcd.setCursor(4,1);
+    lcd.print(system);
+
+    lcdLoopCounter = 0;  
   }
 
   //verboseDebug(2, F("Actual AZ: "), 0);
@@ -335,4 +398,45 @@ void loop() {
     //verboseDebug(2, F("NO move required"));
 
   }
+  //Serial.println(millis()); //Useto check how long the loop take
+  //Serial.println("--------");
+  /*
+  Serial.print(acc.x()/9.8);
+  Serial.print(",");
+  Serial.print(acc.y()/9.8);
+  Serial.print(",");
+  Serial.print(acc.z()/9.8);
+  Serial.print(",");
+  Serial.print(accel);
+  Serial.print(",");
+  Serial.print(gyro);
+  Serial.print(",");
+  Serial.print(mg);
+  Serial.print(",");
+  Serial.print(system);
+  Serial.print(",");
+  Serial.print(thetaM);
+  Serial.print(",");
+  Serial.print(phiM);
+  Serial.print(",");
+  Serial.print(thetaFnew);
+  Serial.print(",");
+  Serial.print(phiFnew);
+  Serial.print(",");
+  Serial.print(thetaG);
+  Serial.print(",");
+  Serial.print(phiG);
+  Serial.print(",");
+  Serial.print(theta);
+  Serial.print(",");
+  Serial.print(phi);
+  Serial.print(",");
+  Serial.print(psi); 
+  Serial.print(",");
+  Serial.print(psi2); 
+  Serial.print(",");
+  Serial.print(actual_el); 
+  Serial.print(",");
+  Serial.println(actual_az); 
+  */
 }
