@@ -4,7 +4,6 @@
 */
 #include "SerialHandler.h"
 #include "MoveHandler.h"
-#include "VerboseDebugHandler.h"
 #include <LiquidCrystal.h>
 #include <AccelStepper.h>
 #include <Wire.h>  // Wire library - used for I2C communication
@@ -24,14 +23,6 @@ the same number of step at the same time. because of that only one stepper is de
 and we only manually control the direction pin of the secondary stepper. 
 */
 
-//Verbose message can be modified sending: VERBOSE 0, VERBOSE 1 OR VERBOSE 2
-  /*
-  lv - level of debuging
-    0 - Error
-    1 - Debug
-    2 - Verbatime
-  */
-int verboseLevel = 0;
 
 //Main motor is X 
 const int enPin=8; //Enablel pin for the motor
@@ -67,17 +58,13 @@ float oldYm = 0;
 float psi, psi2;
 float dt;
 unsigned long millisOld;
+uint8_t sys, gyro, accel, mg = 0;
  
 
 
-float magDec =  -13.4;  // update with your location
+float magDec =  13.4;  // update with your location
 
-//Limits Switches
-const int limitELPin = 9; // X..DIR  NOT USE FOR NOW
-const int limitAZPin = 10; // Y.DIR Switch limite for azumute
-const int limitzPin = 11; // Z.DIR  NOT USE FOR NOW
-
-
+//LCD setup
 const int rs = 12; //SpnEN
 const int en = 13; //SpnDir
 const int d4 = 14;  //Abort
@@ -107,8 +94,8 @@ float d_el;
 
 //Stepper information
 long int step_per_turn = 40320;//200 * 4  * 50.4;    To be adjusted using M0, M1, M2 and gearbox
-const float precision_limit = 0.00892857;  // 360 / 40320; can also be use to calculate how many step are required
-const float ok_pos = 0.5; // Position is in range and OK no move required
+const float precision_limit = 0.00892857;  // 360 / 40320; can also be use to calculate how many step are required to move to a certer positon
+const float ok_pos = 0.5; // Position is in range and OK not move required
 
 // Serial variable
 char buffer[32];
@@ -150,9 +137,6 @@ void setup() {
   delay(1000);
 
   Serial.begin(115200);
-  //verboseDebug(1, F("Rotator Initializating..."));
-  //verboseDebug(1, F("Verbose level enable for level 1"));
-  //verboseDebug(2, F("Verbose level enable for level 2"));
 
   
   delay(1000);
@@ -168,7 +152,10 @@ void setup() {
   if(!IMU.begin())
   {
     /* There was a problem detecting the BNO055 ... check your connections */
-    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("NO BNO055 detected");
     while(1);
   }
   IMU.setExtCrystalUse(true);
@@ -178,7 +165,7 @@ void setup() {
   digitalWrite(enPin, LOW);
 
   //Perform Calibration function
-  calibrationRotator(); 
+  //calibrationRotator(); 
 
   lcd.clear();
   lcd.setCursor(0,0);
@@ -188,15 +175,13 @@ void setup() {
 }
 
 void loop() {
-  uint8_t system, gyro, accel, mg = 0;
+  
   while (Serial.available() > 0){
     readRespondSerial();
   }
-  //Serial.println(millis());
   
   if (lcdLoopCounter % 10 == 0){
-    // 3-4 millis secon in those call
-    // Refresh rate is 10ms without those call and calculation loop take about 1 millis so check every 10 loop
+    // Refresh rate of the sensor is 10ms without those call and calculation loop take about 1 millis so check every 10 loop
     imu::Vector<3> acc =IMU.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
     imu::Vector<3> gyr =IMU.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
     imu::Vector<3> mag =IMU.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
@@ -208,13 +193,14 @@ void loop() {
     
     thetaFnew=.95*thetaFold+.05*thetaM; 
     actual_el = -thetaFnew;
-    
+   
+
     dt=(millis()-millisOld)/1000.;
     millisOld=millis();
     theta=(theta+gyr.y()*dt)*.95+thetaM*.05;
     phi=(phi-gyr.x()*dt)*.95+ phiM*.05;
-    //thetaG=thetaG+gyr.y()*dt;
-    //phiG=phiG-gyr.x()*dt;     
+    //thetaG=thetaG+gyr.y()*dt;  //Not use with this setup
+    //phiG=phiG-gyr.x()*dt;     //Not use with this setup
     
     phiRad=phi/360*(2*3.141592654);
     thetaRad=theta/360*(2*3.141592654);
@@ -230,11 +216,10 @@ void loop() {
     oldXm = Xm;
     oldYm = Ym;
   }
-  //Serial.println(millis());
-  // 1 millis second
+
   //Limit the time the code write to the LCD improve performance
   lcdLoopCounter++;
-  if (lcdLoopCounter>101){
+  if (lcdLoopCounter>=200){
     lcd.setCursor(7,0);
     lcd.print(actual_az);
     lcd.setCursor(11,0);
@@ -249,7 +234,7 @@ void loop() {
     lcd.setCursor(12,1);
     lcd.print(target_el);
 
-    IMU.getCalibration(&system, &gyro, &accel, &mg);  
+    IMU.getCalibration(&sys, &gyro, &accel, &mg);  
     lcd.setCursor(1,1);
     lcd.print(accel);
     lcd.setCursor(2,1);
@@ -257,18 +242,12 @@ void loop() {
     lcd.setCursor(3,1);
     lcd.print(mg);
     lcd.setCursor(4,1);
-    lcd.print(system);
+    lcd.print(sys);
 
     lcdLoopCounter = 0;  
   }
 
-  //verboseDebug(2, F("Actual AZ: "), 0);
-  //verboseDebug(2, String(actual_az));
-  //verboseDebug(2, F("Actual EL: "), 0);
-  //verboseDebug(2, String(actual_el));
 
-
-  // calculate AZ delta
   //Calculate AZ Delta
   d_az = fmod((target_az - actual_az + 360), 360.0);
   if (d_az > 180){
@@ -278,23 +257,13 @@ void loop() {
   d_el = target_el - actual_el;
 
 
-  //verboseDebug(2, F("Delta AZ: "), 0);
-  //verboseDebug(2, String(d_az));
-  //verboseDebug(2, F("Delta EL: "), 0);
-  //verboseDebug(2, String(d_el));
-  //verboseDebug(2, F("fabs(d_az) >= precision_limit = "), 0);
-  //verboseDebug(2, String(fabs(d_az) > precision_limit));
-  //verboseDebug(2, F("fabs(d_el) >= precision_limit = "), 0);
-  //verboseDebug(2, String(fabs(d_el) > precision_limit));
 
   // check if any movement is required
   if (d_az >= ok_pos || d_el >= ok_pos || d_az <= -ok_pos || d_el <= -ok_pos){
-    //verboseDebug(1, "Move required");
+
     
-    //if (fabs(d_az) > fabs(d_el)){
-    if (((d_az>= 0) ? d_az : -d_az) > ((d_el>= 0) ? d_el : -d_el)) {
+    if ((((d_az>= 0) ? d_az : -d_az) > ((d_el>= 0) ? d_el : -d_el)) && actual_el > 0 ){
       //Azimute move
-      //verboseDebug(1,F("Azimute move requried"));
           
       if (d_az > 0 ){
         // Clockwise Azimute
@@ -302,20 +271,15 @@ void loop() {
           lcd.setCursor(5,0);
           lcd.print(char(0b01111110)); //point Right
         }
-        //verboseDebug(1, F("Azimute move Clockwise"));
+
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, HIGH);
+
         //Calculate number of step required to move  
         mainStepper.move(int(d_az / precision_limit) + 1);
-        //verboseDebug(2, F("(int(fabs(d_az) / precision_limit) + 1) "), 0);
-        //verboseDebug(2, String(int(fabs(d_az) / precision_limit) + 1));
 
         mainStepper.run();
         
-        //verboseDebug(2, F("Step required to reach AZ targert, Clockwise "), 0);
-        //verboseDebug(2, String(mainStepper.distanceToGo()));
-        //verboseDebug(2, F("Target: "), 0);
-        //verboseDebug(2, String(mainStepper.targetPosition()));
 
       }else{
         //Counter Clockwise Azimute
@@ -323,26 +287,18 @@ void loop() {
           lcd.setCursor(5,0);
           lcd.print(char(0b01111111)); //point Left
         }
-        //verboseDebug(1, F("Azimute move CounterClockwise"));
+
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, LOW);
+
         //Calculate number of step required
         mainStepper.move(int(d_az / precision_limit) + 1);
-        //verboseDebug(2, F("(int(fabs(d_az) / precision_limit) + 1) "), 0);
-        //verboseDebug(2, String(int(fabs(d_az) / precision_limit) + 1));
 
         mainStepper.run();
-        
-        //verboseDebug(2, F("Step required to reach AZ targert, Counter Clockwise "), 0);
-        //verboseDebug(2, String(mainStepper.distanceToGo()));
-        //verboseDebug(2, F("Target: "), 0);
-        //verboseDebug(2, String(mainStepper.targetPosition()));
-        
       }
 
     }else{
       //Elevation move
-      //verboseDebug(1, F("Elevation move requried"));
       
 
       if (d_el > 0 ){
@@ -351,20 +307,13 @@ void loop() {
           lcd.setCursor(5,0);
           lcd.write(2); //point UP
         }
-        //verboseDebug(1, F("Higher elevation"));
+
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, HIGH);
+
         //Calculate the new step target
         mainStepper.move(-(int(d_el / precision_limit) + 1));
-        //verboseDebug(2, F("(int(fabs(d_el) / precision_limit) + 1) "), 0);
-        //verboseDebug(2, String(int(fabs(d_el) / precision_limit) + 1));
-
         mainStepper.run();
-
-        //verboseDebug(2, F("Step required to reach EL targert, Going UP"), 0);
-        //verboseDebug(2, String(mainStepper.distanceToGo()));
-        //verboseDebug(2, F("Target: "), 0);
-        //verboseDebug(2, String(mainStepper.targetPosition()));
         
       }else{
         //lower elevation
@@ -372,20 +321,14 @@ void loop() {
           lcd.setCursor(5,0);
           lcd.write(1); //point Low
         }
-        //verboseDebug(1, F("Lower elevation"));
+
         //Set pin for secondary stepper
         digitalWrite(dirSecondPin, LOW);
+
         //Calculate number of step required to move to el
         mainStepper.move(-(int(d_el / precision_limit) + 1));
-        //verboseDebug(2, F("(int(fabs(d_el) / precision_limit) + 1) "), 0);
-        //verboseDebug(2, String(int(fabs(d_el) / precision_limit) + 1));
         
         mainStepper.run();
-
-        //verboseDebug(2, F("Step required to reach EL targert, Going DOWN"), 0);
-        //verboseDebug(2, String(mainStepper.distanceToGo()));
-        //verboseDebug(2, F("Target: "), 0);
-        //verboseDebug(2, String(mainStepper.targetPosition()));
       }
     }
 
@@ -395,7 +338,6 @@ void loop() {
       lcd.setCursor(5,0);
       lcd.print(" "); //point Right
     }
-    //verboseDebug(2, F("NO move required"));
 
   }
   //Serial.println(millis()); //Useto check how long the loop take
@@ -413,7 +355,7 @@ void loop() {
   Serial.print(",");
   Serial.print(mg);
   Serial.print(",");
-  Serial.print(system);
+  Serial.print(sys);
   Serial.print(",");
   Serial.print(thetaM);
   Serial.print(",");

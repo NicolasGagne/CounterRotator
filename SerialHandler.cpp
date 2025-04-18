@@ -1,5 +1,4 @@
 #include "SerialHandler.h"
-#include "VerboseDebugHandler.h"
 #include <stdlib.h> // For atof
 #include <stdio.h>
 #include <ctype.h>
@@ -63,9 +62,7 @@ void splitCharArray(const char* input) {
 void readRespondSerial(){
 
   String str1, str2, str3, str4, str5, str6;
-  //receive_string = Serial.readString();
-    //Serial.println(receive_string);
-    //Serial.println(receive_string[-1]);
+
     incomingByte = Serial.read();
     if (incomingByte == '\n' || incomingByte == '\r') {
         
@@ -114,26 +111,7 @@ void readRespondSerial(){
         Serial.println(actual_az);
         Serial.print("Actual EL: ");
         Serial.println(actual_el);
-        Serial.print("Limit Switch EL: ");
-        Serial.println(digitalRead(limitELPin));
-        Serial.print("Limit Switch AZ: ");
-        Serial.println(digitalRead(limitAZPin));
-      }else if(buffer[0] == 'V' && buffer[1] == 'E' && buffer[2] == 'R' && buffer[3] == 'B' && 
-                buffer[4] == 'O' && buffer[5] == 'S' && buffer[6] == 'E' && buffer[7] == ' '){
-        //Setting the verbose level on the fly. 
-        if(buffer[8] == '0'){
-          verboseLevel = 0;
-          Serial.println("Verbose Level set to 0");
-        }else if(buffer[8] == '1'){
-          verboseLevel = 1;
-          Serial.println("Verbose Level set to 1");
-        }else if(buffer[8] == '2'){
-          verboseLevel = 2;
-          Serial.println("Verbose Level set to 2");
-        }else{
-          Serial.println("Error Setting verbose use 1 or 2 as level");
-          Serial.println(buffer[8]);
-        }
+
       }
       
       // Reset the buffer an clean the serial buffer
