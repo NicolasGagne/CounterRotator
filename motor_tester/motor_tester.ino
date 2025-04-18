@@ -15,7 +15,7 @@ AccelStepper mainStepper(AccelStepper::DRIVER, stepMainPin, dirMainPin); // Defa
 //const int stepSecondPin = 3; //Y.STEP
 const int dirSecondPin = 6; // Y.DIR Low clockwise
 
-const long int step = 40320; //number of step to turn
+const long int step = 403200; //number of step to turn
 int test = 0; // rotate
 
 /*
@@ -46,40 +46,42 @@ void setup() {
 
 void loop() {
   if (Serial.available() > 0) {
-    dir = Serial.read();
+    dir = Serial.read(); 
+
     while(Serial.available()) Serial.read();
   }
 
   switch (dir){
   
     case 'a' : 
-      Serial.println("Both motor in same direction Clockwise");
+      //Serial.println("Both motor in same direction Clockwise");
       digitalWrite(dirSecondPin, LOW);
       mainStepper.moveTo(-step);
       break; 
 
     case 'd': 
-      Serial.println("Both motor in same direction Counter Clockwise");
+      //Serial.println("Both motor in same direction Counter Clockwise");
       digitalWrite(dirSecondPin, HIGH);
       mainStepper.moveTo(step);
       break;
   
-    case 's':
-      Serial.println("LOWER ELEVATION");
+    case 's': 
+      //Serial.println("LOWER ELEVATION");
       digitalWrite(dirSecondPin, LOW);
       mainStepper.moveTo(step);
       break;
 
     case 'w':
-      Serial.println("HIGER ELEVATION");
+      //Serial.println("HIGER ELEVATION");
       digitalWrite(dirSecondPin, HIGH);
       mainStepper.moveTo(-step);
       break;
 
     default:
-      Serial.println("No Movement");
+      //Serial.println("No Movement");
       mainStepper.moveTo(mainStepper.currentPosition());
   }
   mainStepper.run();
+  delay(1);
   
 }

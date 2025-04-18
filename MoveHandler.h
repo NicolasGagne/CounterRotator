@@ -1,7 +1,6 @@
 #ifndef MOVEHANDLER_H
 #define MOVEHANDLER_H
 #include <AccelStepper.h>
-#include "VerboseDebugHandler.h"
 #include <LiquidCrystal.h>
 #include <Adafruit_BNO055.h>
 #include "SerialHandler.h"
@@ -18,6 +17,7 @@ extern const int limitELPin; // X.DIR Switch limite for Elevation
 extern const int limitAZPin; // Y.DIR Switch limite for azumute
 extern LiquidCrystal lcd;
 extern Adafruit_BNO055 IMU;
+extern uint8_t sys, gyro, accel, mg;
 
 
 
@@ -25,5 +25,6 @@ extern Adafruit_BNO055 IMU;
 void calibrationRotator();
 bool calibrationElevation(); 
 bool calibrationAzimute(); 
+void displayCalibration();
 
 #endif // MOVEHANDLER_H

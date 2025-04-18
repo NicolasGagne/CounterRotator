@@ -17,8 +17,7 @@ Goal;
 
 
 TO DO:
-- Elevation bellow 0 to check
-- Switch over to MDU9250 or bno055 for easier orientation of mag north
+- Calibration function
 - Clean up 
 
 
