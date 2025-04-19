@@ -62,7 +62,7 @@ uint8_t sys, gyro, accel, mg = 0;
  
 
 
-float magDec =  13.4;  // update with your location
+float magDec =  -13.4;  // update with your location
 
 //LCD setup
 const int rs = 12; //SpnEN
@@ -95,7 +95,7 @@ float d_el;
 //Stepper information
 long int step_per_turn = 40320;//200 * 4  * 50.4;    To be adjusted using M0, M1, M2 and gearbox
 const float precision_limit = 0.00892857;  // 360 / 40320; can also be use to calculate how many step are required to move to a certer positon
-const float ok_pos = 0.5; // Position is in range and OK not move required
+const float ok_pos = 0.25; // Position is in range and OK not move required
 
 // Serial variable
 char buffer[32];
@@ -181,6 +181,7 @@ void loop() {
   }
   
   if (lcdLoopCounter % 10 == 0){
+    /*
     // Refresh rate of the sensor is 10ms without those call and calculation loop take about 1 millis so check every 10 loop
     imu::Vector<3> acc =IMU.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
     imu::Vector<3> gyr =IMU.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
@@ -215,6 +216,22 @@ void loop() {
     thetaFold=thetaFnew;
     oldXm = Xm;
     oldYm = Ym;
+    */
+
+    // test fusion data
+    sensors_event_t event;
+    IMU.getEvent(&event);
+    /*
+    Serial.print((float)event.orientation.x); // azimute Orientation off by 90 degree
+    Serial.print(", ");
+    Serial.print((float)event.orientation.y); // elevation
+    Serial.print(", ");
+    Serial.println((float)event.orientation.z);
+    */
+    
+    actual_el = event.orientation.y;
+    actual_az = fmod(((event.orientation.x + 450) + magDec), 360.0);
+
   }
 
   //Limit the time the code write to the LCD improve performance
