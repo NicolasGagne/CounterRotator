@@ -1,5 +1,8 @@
 # CounterRotator
 
+![Alt text](Picture/PXL_20250419_203900165.jpg)
+
+
 ***WORK in progress ***
 
 To come:
@@ -39,6 +42,9 @@ Parts List for CounterRotator:
 - Can be download form my thingiverse: (insert link)
 
 
+Construction Note:
+- Put a jumper in between the step pin
+- 
 
 
 Special thanks to the following concepts that I remix to use in my desing:
