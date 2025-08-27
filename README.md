@@ -6,7 +6,6 @@
 ***WORK in progress ***
 
 To come:
-- Link for the 3d printed file
 - Scematic
 - Code update
 
@@ -39,7 +38,7 @@ Parts List for CounterRotator:
 - 8 10mm M3 bolts
 
 3d printed part:
-- Can be download form my thingiverse: (insert link)
+- Can be download form my thingiverse: https://www.thingiverse.com/thing:7030043
 
 
 Construction Note:
