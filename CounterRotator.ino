@@ -1,3 +1,7 @@
+#include <SPI.h>
+
+#include <SPI.h>
+
 /*
   Antenna Rotator
 
@@ -11,8 +15,9 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 #include <math.h>
-
-
+#include <Wire.h>
+#include <Adafruit_ADXL345_U.h>
+#include <qmc5883p.h>
 /*
 Stepper motor
 Because of the physical particularity of this desing both stepper are alwyas required
@@ -23,6 +28,10 @@ the same number of step at the same time. because of that only one stepper is de
 and we only manually control the direction pin of the secondary stepper. 
 */
 
+// Use those line to activate the BNO_055 or the combinaison of ADXL_345 & Compas QMC8553P
+bool active_bno_055 = false;
+bool active_adxl345 =true;
+bool active_compass =true;
 
 //Main motor is X 
 const int enPin=8; //Enablel pin for the motor
@@ -35,33 +44,29 @@ const int dirSecondPin = 6; // Y.DIR Low clockwise
 
 //BNO055 sensor
 Adafruit_BNO055 IMU = Adafruit_BNO055();
-float thetaM;
-float phiM;
-float thetaFold=0;
-float thetaFnew;
-float phiFold=0;
-float phiFnew;
- 
-float thetaG=0;
-float phiG=0;
- 
-float theta;
-float phi;
- 
-float thetaRad;
-float phiRad;
- 
-float Xm;
-float Ym;
-float oldXm = 0;
-float oldYm = 0;
-float psi, psi2;
-float dt;
-unsigned long millisOld;
 uint8_t sys, gyro, accel, mg = 0;
+
+//ADXL345
+//I2C device found at address 0x53  !
+//#define ADXL345_ADDR 0x53   // SDO = GND
+/* Assign a unique ID to this sensor at the same time */
+Adafruit_ADXL345_Unified ADXL345 = Adafruit_ADXL345_Unified(12345);
+
+
+
+
  
-
-
+//QMC5883P
+//I2C device found at address 0x2C  !
+QMC5883P mag;
+// ===================================================================
+// INSERT "SOFT-IRON" CALIBRATION VALUES HERE
+// Also update bellow:   mag.setHardIronOffsets(-0.022f, -0.298f);
+// ===================================================================
+const float SCALE_AVG = 0.411f;
+const float SCALE_X   = 0.321f;
+const float SCALE_Y   = 0.502f;
+float xyz[3];
 float magDec =  -13.4;  // update with your location
 
 //LCD setup
@@ -125,6 +130,7 @@ byte UpArrow[8] = {
 };
 
 
+
 void setup() {
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
@@ -137,7 +143,7 @@ void setup() {
   delay(1000);
 
   Serial.begin(115200);
-
+  //Serial.println("Serial Start...");
   
   delay(1000);
   pinMode(dirSecondPin, OUTPUT);
@@ -147,90 +153,107 @@ void setup() {
   mainStepper.setCurrentPosition(0);
   mainStepper.setMinPulseWidth(10); //has no effect 
 
-
-  /* Initialise the sensor */
-  if(!IMU.begin())
-  {
-    /* There was a problem detecting the BNO055 ... check your connections */
-    Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("NO BNO055 detected");
-    while(1);
+  if(active_bno_055){
+    /* Initialise the sensor */
+    if(!IMU.begin())
+    {
+      /* There was a problem detecting the BNO055 ... check your connections */
+      Serial.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("NO BNO055 detected");
+      while(1);
+    }
+    IMU.setExtCrystalUse(true);
+    delay(2000);
+    //Perform Calibration function
+    //calibrationRotator()
   }
-  IMU.setExtCrystalUse(true);
-  delay(2000);
+
+  if(active_adxl345){
+    //initADXL345();
+    delay(50);
+
+     /* Initialise the sensor */
+    if(!ADXL345.begin())
+    {
+      /* There was a problem detecting the ADXL345 ... check your connections */
+      Serial.println("Ooops, no ADXL345 detected ... Check your wiring!");
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("ADXL345 Problems");
+      while(1);
+    }
+     ADXL345.setRange(ADXL345_RANGE_2_G);
+      
+  }
+
+  if(active_compass){
+    if (!mag.begin()) {
+      Serial.println("Initialization failed! Compass QMC5883P");
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Compass Problems");
+      while (true);
+    }
+    // ===================================================================
+    // INSERT "HARD-IRON" CALIBRATION COMMAND HERE
+    // ===================================================================
+   
+    mag.setHardIronOffsets(-0.663f, -0.015f);
+  }
 
   // Enable the servo
   digitalWrite(enPin, LOW);
 
-  //Perform Calibration function
-  //calibrationRotator(); 
-
+  // Setup the LCD for display
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("A/T:");
-  lcd.setCursor(0,1);
-  lcd.print("C");
+  
 }
 
 void loop() {
-  
+
   while (Serial.available() > 0){
     readRespondSerial();
   }
   
   if (lcdLoopCounter % 10 == 0){
-    /*
-    // Refresh rate of the sensor is 10ms without those call and calculation loop take about 1 millis so check every 10 loop
-    imu::Vector<3> acc =IMU.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-    imu::Vector<3> gyr =IMU.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
-    imu::Vector<3> mag =IMU.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
-    //Serial.println(millis());
-    // 2 millis second
-    thetaM=-atan2(acc.x()/9.8,acc.z()/9.8)/2/3.141592654*360;
-    phiM=-atan2(acc.y()/9.8,acc.z()/9.8)/2/3.141592654*360;
-    phiFnew =.95*phiFold+.05*phiM;
-    
-    thetaFnew=.95*thetaFold+.05*thetaM; 
-    actual_el = -thetaFnew;
-   
 
-    dt=(millis()-millisOld)/1000.;
-    millisOld=millis();
-    theta=(theta+gyr.y()*dt)*.95+thetaM*.05;
-    phi=(phi-gyr.x()*dt)*.95+ phiM*.05;
-    //thetaG=thetaG+gyr.y()*dt;  //Not use with this setup
-    //phiG=phiG-gyr.x()*dt;     //Not use with this setup
-    
-    phiRad=phi/360*(2*3.141592654);
-    thetaRad=theta/360*(2*3.141592654);
+    // Fusion Data BNO_055
+    if(active_bno_055){
+      sensors_event_t event;
+      IMU.getEvent(&event);
 
-    Xm=(oldXm *.95) + ((mag.x()*cos(thetaRad)-mag.y()*sin(phiRad)*sin(thetaRad)+mag.z()*cos(phiRad)*sin(thetaRad))*.05);
-    Ym=(oldYm *.95) + ((mag.y()*cos(phiRad)+mag.z()*sin(phiRad))*.05);
-  
-    psi =fmod((((atan2(Ym,Xm)/(2*3.141592654)*360)+ magDec) + 360.0), 360.0);
-    actual_az = psi; 
-    
-    phiFold=phiFnew;
-    thetaFold=thetaFnew;
-    oldXm = Xm;
-    oldYm = Ym;
-    */
+      actual_el = event.orientation.y;
+      actual_az = fmod(((event.orientation.x + 450) + magDec), 360.0);
+    }
 
-    // test fusion data
-    sensors_event_t event;
-    IMU.getEvent(&event);
-    /*
-    Serial.print((float)event.orientation.x); // azimute Orientation off by 90 degree
-    Serial.print(", ");
-    Serial.print((float)event.orientation.y); // elevation
-    Serial.print(", ");
-    Serial.println((float)event.orientation.z);
-    */
-    
-    actual_el = event.orientation.y;
-    actual_az = fmod(((event.orientation.x + 450) + magDec), 360.0);
+    if(active_adxl345){
+
+      /* Get a new sensor event */ 
+      sensors_event_t event; 
+      ADXL345.getEvent(&event);
+
+      actual_el  = atan2(event.acceleration.y, sqrt(event.acceleration.x * event.acceleration.x + event.acceleration.z * event.acceleration.z)) * 180.0 / PI;
+      
+      //Serial.print("EL= ");
+      //Serial.println(actual_el);
+    }
+
+    if(active_compass){
+      mag.readXYZ(xyz);
+      // Apply soft-iron correction
+      xyz[0] *= SCALE_AVG / SCALE_X;
+      xyz[1] *= SCALE_AVG / SCALE_Y;
+      actual_az = mag.getHeadingDeg(magDec); // Adjust declination
+      // Correct for the sensor orientation 
+      actual_az = fmod((- actual_az + 180 + 360), 360.0);
+      //Serial.print("AZ= ");
+      //Serial.println(actual_az);
+    }
+
 
   }
 
@@ -251,15 +274,19 @@ void loop() {
     lcd.setCursor(12,1);
     lcd.print(target_el);
 
-    IMU.getCalibration(&sys, &gyro, &accel, &mg);  
-    lcd.setCursor(1,1);
-    lcd.print(accel);
-    lcd.setCursor(2,1);
-    lcd.print(gyro);
-    lcd.setCursor(3,1);
-    lcd.print(mg);
-    lcd.setCursor(4,1);
-    lcd.print(sys);
+    if(active_bno_055){
+      IMU.getCalibration(&sys, &gyro, &accel, &mg);  
+      lcd.setCursor(0,1);
+      lcd.print("C");
+      lcd.setCursor(1,1);
+      lcd.print(accel);
+      lcd.setCursor(2,1);
+      lcd.print(gyro);
+      lcd.setCursor(3,1);
+      lcd.print(mg);
+      lcd.setCursor(4,1);
+      lcd.print(sys);
+    }
 
     lcdLoopCounter = 0;  
   }
@@ -358,44 +385,4 @@ void loop() {
 
   }
   //Serial.println(millis()); //Useto check how long the loop take
-  //Serial.println("--------");
-  /*
-  Serial.print(acc.x()/9.8);
-  Serial.print(",");
-  Serial.print(acc.y()/9.8);
-  Serial.print(",");
-  Serial.print(acc.z()/9.8);
-  Serial.print(",");
-  Serial.print(accel);
-  Serial.print(",");
-  Serial.print(gyro);
-  Serial.print(",");
-  Serial.print(mg);
-  Serial.print(",");
-  Serial.print(sys);
-  Serial.print(",");
-  Serial.print(thetaM);
-  Serial.print(",");
-  Serial.print(phiM);
-  Serial.print(",");
-  Serial.print(thetaFnew);
-  Serial.print(",");
-  Serial.print(phiFnew);
-  Serial.print(",");
-  Serial.print(thetaG);
-  Serial.print(",");
-  Serial.print(phiG);
-  Serial.print(",");
-  Serial.print(theta);
-  Serial.print(",");
-  Serial.print(phi);
-  Serial.print(",");
-  Serial.print(psi); 
-  Serial.print(",");
-  Serial.print(psi2); 
-  Serial.print(",");
-  Serial.print(actual_el); 
-  Serial.print(",");
-  Serial.println(actual_az); 
-  */
 }
