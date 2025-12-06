@@ -20,7 +20,8 @@ Goal;
 
 
 TO DO:
-- Calibration function
+- Calibration function (BNO055)
+- Automatic Calibration (QMC5883P)
 - Clean up 
 
 Parts List for CounterRotator:
@@ -29,7 +30,7 @@ Parts List for CounterRotator:
 - 1 CNC Shield V3 
 - 2 A4988 or 8825 stepper drivers
 - 1 LCD 16x2
-- 1 BNO055 sensors or another 9axis sensor 
+- 1 BNO055 sensors (9axis sensor)  0r ADXL345 and Compass (QMC5883P)
 - 8 10mm M6 bolts
 - 4 50mm M6 bolts 
 - 2 60mm M6 bolts and nuts
@@ -75,6 +76,7 @@ Open the directory
 
 Open CounterRotator.ino with the Arduino IDE
 Install the dependency in your IDE
+Review the Arduino code to be compatible to your particular sensors
 Upload the file to your Arduino
 Start rotctld use: rotctld -m 202 -r COM6 -s 115200 -T 127.0.0.1 -t 4533 -vvvvv (modified COM, IP and port as needed)
 Start Satdump and configure the Rotator matching the above
